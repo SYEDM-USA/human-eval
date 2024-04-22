@@ -1,7 +1,8 @@
 # This is an example script that uses CodeParrot to generate programs for a given set of prompts.
 # model options: codeparrot/codeparrot, codeparrot/codeparrot-small
 
-from transformers import pipeline
+from transformers import pipeline, AutoModel, AutoTokenizer, AutoModelForCausalLM
+from huggingface_hub import login
 import os
 import sys
 from datetime import datetime
@@ -17,8 +18,16 @@ def write_to_jsonl(task_id, completion):
 def codeparrot(task_id, prompts, model_name, num_gen_per_prompt, num_prompts_per_gen=1):
     if type(prompts) == str:
         prompts = [prompts]
-    pipe = pipeline("text-generation", model=model_name, max_new_tokens=300, pad_token_id=50256, device=0, batch_size=num_prompts_per_gen)
-    
+
+    if "unlearning" in model_name:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+        generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
+    else: 
+        # model = AutoModel.from_pretrained('akshajuppala/codeip-finetuned', token="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")
+        pipe = pipeline("text-generation", model = model_name, max_new_tokens=300, pad_token_id=50256, device=0, batch_size=num_prompts_per_gen)
+        # pipe = AutoModel.from_pretrained('akshajuppala/codeip-finetuned', token="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") #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    
+
     if num_prompts_per_gen > 1 and pipe.model.__class__.__name__.startswith("GPT2"):
         # IMPORTANT: Change the configuration of tokenizer to make batching work for GPT2
         # cf.
@@ -36,18 +45,21 @@ def codeparrot(task_id, prompts, model_name, num_gen_per_prompt, num_prompts_per
         pipe.tokenizer.padding_side = "left" #For BERT like models use "right"
 
     gen_start_time = datetime.now()
-    outputs = pipe(prompts, num_return_sequences=num_gen_per_prompt)
-    # print("Output: ", outputs)
+    for _ in range(int(num_gen_per_prompt/10)):
+        if "unlearning" in model_name:
+            outputs = generator(prompts, max_length=300, num_return_sequences=int(num_gen_per_prompt/10))
+        else:
+            outputs = pipe(prompts, num_return_sequences=int(num_gen_per_prompt/10))
+        for i in range(num_prompts_per_gen):
+            for j in range(int(num_gen_per_prompt/10)):
+                if "generated_text" in outputs[i][j]:
+                    write_to_jsonl(task_id, outputs[i][j])
+                    # print(outputs[i][j]["generated_text"])
+                    # print("--------------------------------------------------------------------------")
     print(f"Generated {num_prompts_per_gen} prompts * {num_gen_per_prompt} files: {(datetime.now() - gen_start_time).total_seconds()} [sec]")
-    for i in range(num_prompts_per_gen):
-        for j in range(num_gen_per_prompt):
-            if "generated_text" in outputs[i][j]:
-                write_to_jsonl(task_id, outputs[i][j])
-                # print(outputs[i][j]["generated_text"])
-                # print("--------------------------------------------------------------------------")
 
 if __name__=='__main__':
-
+    login("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")
     start_time = datetime.now()
 
     model_name = sys.argv[1]
@@ -57,6 +69,14 @@ if __name__=='__main__':
         model = "CodeParrot"
     elif model_name == "codeparrot/codeparrot-small":
         model = "CodeParrotSmall"
+    elif model_name == "akshajuppala/codeip-finetuned":
+        model = "Finetuned_CodeParrotSmall"
+    elif model_name == "unlearning_one_epoch":
+        model_name = "models/lr-0.0005_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42"
+        model = "unlearning_one_epoch"
+    elif model_name == "unlearning_three_epoch":
+        model_name = "models/lr-0.0005_bs-2_accsteps-1_epochs-3.0_maxsteps-0_warmsteps-0_lora-8_seed-42"
+        model = "unlearning_three_epoch"
     else:
         print("Usage: python3 Example_Parrot.py codeparrot/codeparrot <number per prompt , pass@k>")
         exit(1)

@@ -7,9 +7,9 @@ os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 references = []
 generations = []
 
-with open('References-small.out', 'r') as ref_file:
+with open('References.out', 'r') as ref_file:
     references = json.load(ref_file)
-with open('Generation-small.out', 'r') as gen_file:
+with open('Generation.out', 'r') as gen_file:
     generations = json.load(gen_file)
 
 # print(references, generations)

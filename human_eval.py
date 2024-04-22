@@ -7,7 +7,6 @@ from collections import defaultdict
 import torch
 from accelerate import Accelerator
 from accelerate.utils import set_seed
-from arguments import HumanEvalArguments
 from datasets import load_dataset, load_metric
 from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import DataLoader
@@ -138,35 +137,29 @@ def complete_code(accelerator, model, tokenizer, dataloader, n_tasks, batch_size
 
 
 def main():
-    # Setup configuration
-    parser = HfArgumentParser(HumanEvalArguments)
-    args = parser.parse_args()
 
     transformers.logging.set_verbosity_error()
     # enables code execution in code_eval metric
-    os.environ["HF_ALLOW_CODE_EVAL"] = args.HF_ALLOW_CODE_EVAL
+    os.environ["HF_ALLOW_CODE_EVAL"] = "1"
     # make sure tokenizer plays nice with multiprocessing
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-    if args.num_workers is None:
-        args.num_workers = multiprocessing.cpu_count()
-
     # Use dataset load to feed to accelerate
     accelerator = Accelerator()
-    set_seed(args.seed, device_specific=True)
+    set_seed(0, device_specific=True)
 
     # Load model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.model_ckpt)
+    tokenizer = AutoTokenizer.from_pretrained('codeparrot/codeparrot')
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(args.model_ckpt)
+    model = AutoModelForCausalLM.from_pretrained('codeparrot/codeparrot')
 
     # Generation settings
     gen_kwargs = {
-        "do_sample": args.do_sample,
-        "temperature": args.temperature,
-        "max_new_tokens": args.max_new_tokens,
-        "top_p": args.top_p,
-        "top_k": args.top_k,
+        "do_sample": True,
+        "temperature": 0.1,
+        "max_new_tokens": 300,
+        "top_p": 0.95,
+        "top_k": 0,
         "stopping_criteria": StoppingCriteriaList([EndOfFunctionCriteria(0, EOF_STRINGS, tokenizer)]),
     }
 
@@ -174,8 +167,8 @@ def main():
     human_eval = load_dataset("openai_humaneval")
     code_eval_metric = load_metric("code_eval")
 
-    n_tasks = args.num_tasks if args.num_tasks is not None else len(human_eval["test"])
-    n_copies = args.n_samples // args.batch_size
+    n_tasks = len(human_eval["test"])
+    n_copies = 1000 // 100
 
     human_eval_tokenized = TokenizedDataset(tokenizer, human_eval["test"], n_copies=n_copies, n_tasks=n_tasks)
     # do not confuse args.batch_size, which is actually the num_return_sequences
@@ -199,7 +192,7 @@ def main():
         tokenizer,
         human_eval_loader,
         n_tasks=n_tasks,
-        batch_size=args.batch_size,
+        batch_size=10,
         **gen_kwargs,
     )
 
@@ -211,14 +204,20 @@ def main():
             entry_point = f"check({human_eval['test'][task]['entry_point']})"
             references.append("\n" + test_func + "\n" + entry_point)
 
+        with open('References.out', 'w') as ref_file:
+            json.dump(references, ref_file)
+        with open('Generation.out', 'w') as gen_file:
+            json.dump(generations, gen_file)
+
+        exit(1)
         # Evaluate completions with "code_eval" metric
         pass_at_k, _ = code_eval_metric.compute(
-            references=references, predictions=generations, num_workers=args.num_workers
+            references=references, predictions=generations, num_workers=2
         )
         print(f"Results: {pass_at_k}")
 
         # Save results to json file
-        with open(args.output_file, "w") as fp:
+        with open('Exec_results.out', "w") as fp:
             json.dump(pass_at_k, fp)
 
 

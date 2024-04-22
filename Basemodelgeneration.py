@@ -45,21 +45,31 @@ def codeparrot(task_id, prompts, model_name, num_gen_per_prompt, num_prompts_per
         pipe.tokenizer.padding_side = "left" #For BERT like models use "right"
 
     gen_start_time = datetime.now()
-    for _ in range(int(num_gen_per_prompt/10)):
+    if num_gen_per_prompt > 10:
+        for _ in range(int(num_gen_per_prompt/10)):
+            if "unlearning" in model_name:
+                outputs = generator(prompts, max_length=300, num_return_sequences=int(num_gen_per_prompt/10))
+            else:
+                outputs = pipe(prompts, num_return_sequences=int(num_gen_per_prompt/10))
+            for i in range(num_prompts_per_gen):
+                for j in range(int(num_gen_per_prompt/10)):
+                    if "generated_text" in outputs[i][j]:
+                        write_to_jsonl(task_id, outputs[i][j])
+                        # print(outputs[i][j]["generated_text"])
+                        # print("--------------------------------------------------------------------------")
+    else:
         if "unlearning" in model_name:
-            outputs = generator(prompts, max_length=300, num_return_sequences=int(num_gen_per_prompt/10))
+            outputs = generator(prompts, max_length=300, num_return_sequences= num_gen_per_prompt)
         else:
-            outputs = pipe(prompts, num_return_sequences=int(num_gen_per_prompt/10))
+            outputs = pipe(prompts, num_return_sequences= num_gen_per_prompt)
         for i in range(num_prompts_per_gen):
-            for j in range(int(num_gen_per_prompt/10)):
+            for j in range(num_gen_per_prompt):
                 if "generated_text" in outputs[i][j]:
                     write_to_jsonl(task_id, outputs[i][j])
-                    # print(outputs[i][j]["generated_text"])
-                    # print("--------------------------------------------------------------------------")
     print(f"Generated {num_prompts_per_gen} prompts * {num_gen_per_prompt} files: {(datetime.now() - gen_start_time).total_seconds()} [sec]")
 
 if __name__=='__main__':
-    login("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")
+#    login("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")
     start_time = datetime.now()
 
     model_name = sys.argv[1]
@@ -74,6 +84,9 @@ if __name__=='__main__':
     elif model_name == "unlearning_one_epoch":
         model_name = "models/lr-0.0005_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42"
         model = "unlearning_one_epoch"
+    elif model_name == "unlearning_one_smaller_epoch":
+        model_name = "models/lr-5e-05_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42"
+        model = "unlearning_one_smaller_epoch"
     elif model_name == "unlearning_three_epoch":
         model_name = "models/lr-0.0005_bs-2_accsteps-1_epochs-3.0_maxsteps-0_warmsteps-0_lora-8_seed-42"
         model = "unlearning_three_epoch"

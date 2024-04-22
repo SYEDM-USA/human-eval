@@ -149,9 +149,9 @@ def main():
     set_seed(0, device_specific=True)
 
     # Load model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained('codeparrot/codeparrot')
+    tokenizer = AutoTokenizer.from_pretrained('models/lr-5e-05_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained('codeparrot/codeparrot')
+    model = AutoModelForCausalLM.from_pretrained('models/lr-5e-05_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
 
     # Generation settings
     gen_kwargs = {
@@ -168,7 +168,7 @@ def main():
     code_eval_metric = load_metric("code_eval")
 
     n_tasks = len(human_eval["test"])
-    n_copies = 1000 // 100
+    n_copies = 200 // 100
 
     human_eval_tokenized = TokenizedDataset(tokenizer, human_eval["test"], n_copies=n_copies, n_tasks=n_tasks)
     # do not confuse args.batch_size, which is actually the num_return_sequences
@@ -192,7 +192,7 @@ def main():
         tokenizer,
         human_eval_loader,
         n_tasks=n_tasks,
-        batch_size=10,
+        batch_size=40,
         **gen_kwargs,
     )
 

@@ -11,7 +11,7 @@ from datasets import load_dataset, load_metric
 from torch.utils.data import IterableDataset
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
-
+from huggingface_hub import login
 import transformers
 from transformers import AutoModelForCausalLM, AutoTokenizer, HfArgumentParser, StoppingCriteria, StoppingCriteriaList
 
@@ -137,6 +137,7 @@ def complete_code(accelerator, model, tokenizer, dataloader, n_tasks, batch_size
 
 
 def main():
+    login("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")
 
     transformers.logging.set_verbosity_error()
     # enables code execution in code_eval metric
@@ -149,9 +150,9 @@ def main():
     set_seed(0, device_specific=True)
 
     # Load model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained('models/lr-5e-05_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
+    tokenizer = AutoTokenizer.from_pretrained('codeparrot/codeparrot-small')
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained('models/lr-5e-05_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
+    model = AutoModelForCausalLM.from_pretrained('akshajuppala/codeip-finetuned')
 
     # Generation settings
     gen_kwargs = {

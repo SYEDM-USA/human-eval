@@ -149,9 +149,9 @@ def main():
     set_seed(0, device_specific=True)
 
     # Load model and tokenizer
-    tokenizer = AutoTokenizer.from_pretrained('models/lr-5e-06_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
+    tokenizer = AutoTokenizer.from_pretrained('models/lr-4e-05_bs-4_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
     tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained('models/lr-5e-06_bs-2_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
+    model = AutoModelForCausalLM.from_pretrained('models/lr-4e-05_bs-4_accsteps-1_epochs-1.0_maxsteps-0_warmsteps-0_lora-8_seed-42')
 
     # Generation settings
     gen_kwargs = {

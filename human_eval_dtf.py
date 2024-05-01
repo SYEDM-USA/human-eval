@@ -246,6 +246,8 @@ def main():
     human_eval = load_dataset("openai_humaneval")
     code_eval_metric = load_metric("code_eval")
 
+    print(human_eval)
+
     n_tasks = len(human_eval["test"])
     n_copies = 200 // 100
 

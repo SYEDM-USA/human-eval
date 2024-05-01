@@ -86,7 +86,7 @@ def evaluate_similarity(prompt, generated_text, source, language='python'):
     return float(dolos_score)
 
 
-def generate_code_with_filtering(model, tokenizer, prompt, example_solution, similarity_threshold = 0.5, max_new_tokens = 300, chunk_size = 50, device= 'cuda'):
+def generate_code_with_filtering(model, tokenizer, prompt, example_solution, similarity_threshold = 0.5, max_new_tokens = 300, chunk_size = 50, device= 'cuda', **gen_kwargs):
     for _ in range(max_new_tokens // chunk_size):
         encoded = tokenizer(prompt, return_tensors="pt", padding=True).to(device)
         outputs = model.generate(
@@ -98,6 +98,7 @@ def generate_code_with_filtering(model, tokenizer, prompt, example_solution, sim
             pad_token_id=tokenizer.pad_token_id,
             return_dict_in_generate=True,
             output_scores=True,
+            **gen_kwargs
         )
 
         generated_texts = tokenizer.batch_decode(outputs['sequences'], skip_special_tokens=True)
@@ -138,7 +139,7 @@ def generate_code_with_filtering(model, tokenizer, prompt, example_solution, sim
             generated_texts = tokenizer.decode(outputs['sequences'], skip_special_tokens=True)
     return generated_texts
 
-def complete_code(accelerator, model, tokenizer, dataloader, n_tasks, batch_size=20, **gen_kwargs):
+def complete_code(accelerator, model, tokenizer, dataloader, human_eval, n_tasks, batch_size=20, **gen_kwargs):
     """Generate multiple codes for each task in the dataset. This function leverage accelerator to distribute
     the processing to multiple GPUs.
     dataloader, a wrapper around a TokenizeDataset objectm is supposed to send all the prompts from
@@ -185,7 +186,7 @@ def complete_code(accelerator, model, tokenizer, dataloader, n_tasks, batch_size
             #     input_ids=batch["ids"][:, : batch["input_len"]], num_return_sequences=batch_size, **gen_kwargs
             # )
 
-            generated_tokens = generate_code_with_filtering(model, tokenizer)
+            generated_tokens = generate_code_with_filtering(model, tokenizer, batch["ids"][:, : batch["input_len"]], human_eval["canonical_solution"][step], **gen_kwargs)
 
 
             print(generated_tokens)
@@ -271,6 +272,7 @@ def main():
         model,
         tokenizer,
         human_eval_loader,
+        human_eval,
         n_tasks=n_tasks,
         batch_size=40,
         **gen_kwargs,
